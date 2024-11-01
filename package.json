@@ -1,0 +1,33 @@
+{
+  "name": "bollinger-silver-collector",
+  "version": "0.0.1",
+  "description": "Bollinger Silver Collector",
+  "main": "bollinger.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moniquebaumann/bollinger-silver-collector.git"
+  },
+  "keywords": [
+    "bollinger",
+    "freedom",
+    "silver"
+  ],
+  "author": "silver",
+  "license": "AGPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/moniquebaumann/bollinger-silver-collector/issues"
+  },
+  "homepage": "https://github.com/moniquebaumann/bollinger-silver-collector#readme",
+  "devDependencies": {
+    "@tsconfig/node16": "^16.1.3",
+    "@types/node": "^22.8.6"
+  },
+  "dependencies": {
+    "@dydxprotocol/v4-client-js": "^1.12.3",
+    "dotenv": "^16.4.5",
+    "lodash": "^4.17.21"
+  }
+}
