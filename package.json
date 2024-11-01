@@ -28,6 +28,7 @@
   "dependencies": {
     "@dydxprotocol/v4-client-js": "^1.12.3",
     "dotenv": "^16.4.5",
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "typescript": "^5.6.3"
   }
 }
