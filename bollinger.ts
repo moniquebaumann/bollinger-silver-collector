@@ -45,7 +45,6 @@ export class FreedomCashProvider {
     }
 
     private async playRound() {
-        console.log(`playing round ${this.roundCounter}`)
         this.roundCounter++
         let response = await this.indexerClient.account.getSubaccounts(this.address);
         const freeCollateralPercentage = (response.subaccounts[0].freeCollateral * 100) / response.subaccounts[0].equity
@@ -53,14 +52,10 @@ export class FreedomCashProvider {
         response = await this.indexerClient.account.getSubaccountPerpetualPositions(this.address, 0);
         const positions = response.positions;
         for (const position of positions) {
-
-            if (position.market !== 'BTC-USD') { continue }
             if (position.closedAt === null) {
                 const pnlInPerCent = (position.unrealizedPnl * 100) / (Math.abs(position.size) * position.entryPrice)
                 this.updatePNLHistory(position.market, pnlInPerCent)
                 const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
-                // console.log(`pnlHistory: ${pnlHistory.pnls}`)
-                // console.log(`pnlHistory: ${JSON.stringify(pnlHistory)}`)
                 if (pnlHistory.pnls.length === this.historyLength) {
                     const bollingerBands = Bands.getBollingerBands(pnlHistory.pnls, 5)
                     const lower = bollingerBands.lower[pnlHistory.pnls.length - 1]
@@ -77,9 +72,6 @@ export class FreedomCashProvider {
     }
 
     private getAdvice(lower: number, current: number, upper: number, freeCollateralPercentage: number) {
-        // console.log(`current: ${current}`)
-        // console.log(`would buy at: ${lower}`)
-        // console.log(`would sell at: ${upper}`)
         if (current <= lower && freeCollateralPercentage > this.minCollateralPercentage) {
             return "Buy"
         } else if (current >= upper || freeCollateralPercentage < this.minCollateralPercentage) {
@@ -101,8 +93,6 @@ export class FreedomCashProvider {
         }
     }
     private async optimizePosition(position: any, subaccount: any, advice: string) {
-        // console.log(`optimizing position: ${JSON.stringify( position)}`)
-
         const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market];
         const id = `${this.roundCounter}-${position.market}`
         let goodTilTimeInSeconds1 = OrderTimeInForce.IOC
