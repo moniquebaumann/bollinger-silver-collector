@@ -78,7 +78,7 @@ export class Collector {
     private async considerAccount() {
         let response = await this.indexerClient.account.getSubaccounts(this.address)
         this.freeCollateralPercentage = Number(((response.subaccounts[0].freeCollateral * 100) / response.subaccounts[0].equity).toFixed(2))
-        console.log(`equity: ${response.subaccounts[0].equity} \nfree: ${this.freeCollateralPercentage} % at round number ${this.roundCounter}`)
+        console.log(`\nequity: ${response.subaccounts[0].equity} \nfree: ${this.freeCollateralPercentage} % at round number ${this.roundCounter}`)
     }
 
     private async considerPositions() {
