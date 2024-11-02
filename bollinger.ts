@@ -42,7 +42,7 @@ export class FreedomCashProvider {
             } catch (error: any) {
                 console.log(error.message);
             }
-        }, 9 * 1000)
+        }, 60 * 1000)
     }
 
     private async playRound() {
@@ -58,7 +58,7 @@ export class FreedomCashProvider {
                 this.updatePNLHistory(position.market, pnlInPerCent)
                 const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
                 if (pnlHistory.pnls.length === this.historyLength) {
-                    const bollingerBands = Bands.getBollingerBands(pnlHistory.pnls, 3)
+                    const bollingerBands = Bands.getBollingerBands(pnlHistory.pnls, 5)
                     const lower = bollingerBands.lower[pnlHistory.pnls.length - 1]
                     const current = pnlHistory.pnls[pnlHistory.pnls.length - 1]
                     const upper = bollingerBands.upper[pnlHistory.pnls.length - 1]
