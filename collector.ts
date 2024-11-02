@@ -130,6 +130,7 @@ export class Collector {
             console.log(`suggesting to increase ${pnlHistory.market} current: ${current} lower: ${lower}`)
             return EAdvice.INCREASE
         } else if (current >= this.celebrateAt) {
+            console.log(`suggesting to celebrate ${pnlHistory.market} current: ${current} celebrateAt: ${this.celebrateAt}`)
             return EAdvice.CELEBRATE
         } else if (current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) {
             console.log(`suggesting to decrease ${pnlHistory.market} current: ${current} upper: ${upper}`)
