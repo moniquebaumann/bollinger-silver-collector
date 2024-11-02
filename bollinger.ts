@@ -110,7 +110,6 @@ export class FreedomCashProvider {
         }
         price = (side === OrderSide.BUY) ? marketData.oraclePrice * 1.001 : marketData.oraclePrice * 0.999
         await this.compositeClient.placeOrder(subaccount, position.market, OrderType.MARKET, side, price, size, id, OrderTimeInForce.GTT, goodTilTimeInSeconds1, OrderExecution.DEFAULT)
-        await this.sleep(9)
     }
 
     private getAdvice(lower: number, current: number, upper: number, freeCollateralPercentage: number) {
@@ -124,8 +123,6 @@ export class FreedomCashProvider {
             return "Relax"
         }
     }
-
-    private sleep(seconds: number) { return new Promise((resolve) => { setTimeout(resolve, seconds * 1000) }) }
 }
 
 config()
