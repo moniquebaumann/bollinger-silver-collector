@@ -17,7 +17,7 @@ export class FreedomCashProvider {
         return FreedomCashProvider.instance
     }
 
-    private readonly historyLength = 9
+    private readonly historyLength = 33
     private readonly minCollateralPercentage = 55
     private roundCounter
     private address
