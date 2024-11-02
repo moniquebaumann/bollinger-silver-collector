@@ -95,7 +95,6 @@ export class Collector {
         this.updatePNLHistory(position.market, pnlInPerCent)
         const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
         const advice = this.getAdvice(pnlHistory)
-        console.log(`${advice} ${position.market}`)
         if (pnlHistory.pnls.length === this.historyLength || advice === EAdvice.CELEBRATE) {
             const wallet = await LocalWallet.fromMnemonic(this.mnemonic, BECH32_PREFIX);
             const subaccount = new SubaccountClient(wallet, 0);
@@ -128,10 +127,12 @@ export class Collector {
         const current = pnlHistory.pnls[pnlHistory.pnls.length - 1]
         const upper = bollingerBands.upper[pnlHistory.pnls.length - 1]
         if (current <= lower && this.freeCollateralPercentage > this.targetCollateralPercentage) {
+            console.log(`suggesting to increase ${pnlHistory.market} current: ${current} lower: ${lower}`)
             return EAdvice.INCREASE
         } else if (current >= this.celebrateAt) {
             return EAdvice.CELEBRATE
         } else if (current >= upper || this.freeCollateralPercentage < this.minCollateralPercentage) {
+            console.log(`suggesting to decrease ${pnlHistory.market} current: ${current} upper: ${upper}`)
             return EAdvice.DECREASE
         } else {
             return EAdvice.RELAX
