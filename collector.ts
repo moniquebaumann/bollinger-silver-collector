@@ -24,21 +24,20 @@ export class Collector {
         return Collector.instance
     }
 
-    private readonly historyLength = 60
-    private readonly celebrateAt = 1
-    private readonly intervalLength = 60
-    private readonly targetCollateralPercentage = 30
-    private readonly minCollateralPercentage = 20
-    private readonly stepSizeFactor = 6
-    private readonly spreadFactor = 9
-
+    private historyLength = 60
+    private celebrateAt = 1
+    private intervalLength = 6
+    private targetCollateralPercentage = 30
+    private minCollateralPercentage = 20
+    private stepSizeFactor = 6
+    private spreadFactor = 9
+    private roundCounter = 0
+    private freeCollateralPercentage = 0
+    private pnlHistories: IPNLHistory[] = []
     private address
     private mnemonic
     private indexerClient
     private compositeClient
-    private roundCounter = 0
-    private freeCollateralPercentage = 0
-    private pnlHistories: IPNLHistory[] = []
 
     private constructor(address: string, mnemonic: string, compositeClient: any) {
         this.address = address
@@ -47,7 +46,20 @@ export class Collector {
         this.compositeClient = compositeClient
     }
 
+    public prepare(hL: number, cAt: number, iL: number, tCP: number, mCP: number, sSF: number, sF: number) {
+        this.historyLength = hL
+        this.celebrateAt = cAt
+        this.intervalLength = iL
+        this.targetCollateralPercentage = tCP
+        this.minCollateralPercentage = mCP
+        this.stepSizeFactor = sSF
+        this.spreadFactor = sF
+    }
+
     public play() {
+        if (this.intervalLength === undefined || this.intervalLength < 9) {
+            throw new Error(`interval length shall be at least 9 seconds`)
+        }
         setInterval(async () => {
             try {
                 await this.playRound()
@@ -70,7 +82,7 @@ export class Collector {
     }
 
     private async considerPositions() {
-        const positions = await this.indexerClient.account.getSubaccountPerpetualPositions(this.address, 0).positions
+        const positions = (await this.indexerClient.account.getSubaccountPerpetualPositions(this.address, 0)).positions
         for (const position of positions) {
             if (position.closedAt === null) {
                 await this.considerPosition(position)
@@ -142,5 +154,15 @@ export class Collector {
 config()
 setTimeout(async () => {
     const compositeClient = await CompositeClient.connect(Network.mainnet());
-    Collector.getInstance(process.env.ADDRESS as string, process.env.MNEMONIC as string, compositeClient).play()
+    const collector = Collector.getInstance(process.env.ADDRESS as string, process.env.MNEMONIC as string, compositeClient)
+    const historyLength = Number(process.argv[2])
+    const celebrateAt = Number(process.argv[3])
+    const intervalLength = Number(process.argv[4])
+    const targetCollateralPercentage = Number(process.argv[5])
+    const minCollateralPercentage = Number(process.argv[6])
+    const stepSizeFactor = Number(process.argv[7])
+    const spreadFactor = Number(process.argv[8])
+
+    collector.prepare(historyLength, celebrateAt, intervalLength, targetCollateralPercentage, minCollateralPercentage, stepSizeFactor, spreadFactor)
+    collector.play()
 }, 1)
