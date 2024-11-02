@@ -29,6 +29,7 @@ export class Collector {
     private readonly intervalLength = 60
     private readonly targetCollateralPercentage = 30
     private readonly minCollateralPercentage = 20
+    private readonly stepSizeFactor = 6
     private readonly spreadFactor = 9
 
     private address
@@ -68,7 +69,7 @@ export class Collector {
         console.log(`equity: ${response.subaccounts[0].equity} \nfree: ${this.freeCollateralPercentage} % at round number ${this.roundCounter}`)
     }
 
-    private async considerPositions(){
+    private async considerPositions() {
         const positions = await this.indexerClient.account.getSubaccountPerpetualPositions(this.address, 0).positions
         for (const position of positions) {
             if (position.closedAt === null) {
@@ -81,11 +82,7 @@ export class Collector {
         const pnlInPerCent = (position.unrealizedPnl * 100) / (Math.abs(position.size) * position.entryPrice)
         this.updatePNLHistory(position.market, pnlInPerCent)
         const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
-        const bollingerBands = Bollinger.getBollingerBands(pnlHistory.pnls, this.spreadFactor)
-        const lower = bollingerBands.lower[pnlHistory.pnls.length - 1]
-        const current = pnlHistory.pnls[pnlHistory.pnls.length - 1]
-        const upper = bollingerBands.upper[pnlHistory.pnls.length - 1]
-        const advice = this.getAdvice(lower, current, upper)
+        const advice = this.getAdvice(pnlHistory)
         console.log(`${advice} ${position.market}`)
         if (pnlHistory.pnls.length === this.historyLength || advice === EAdvice.CELEBRATE) {
             const wallet = await LocalWallet.fromMnemonic(this.mnemonic, BECH32_PREFIX);
@@ -97,26 +94,27 @@ export class Collector {
     private async optimizePosition(position: any, subaccount: any, advice: EAdvice) {
         const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market];
         const id = `${this.roundCounter}-${position.market}`
-        let size = marketData.stepSize
-        let side, price, goodTilTimeInSeconds1
+        let size = marketData.stepSize * this.stepSizeFactor
+        let side, price
         if (advice === EAdvice.INCREASE) {
             side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
-            goodTilTimeInSeconds1 = OrderTimeInForce.IOC
         } else if (advice === EAdvice.DECREASE && Math.abs(position.size) > marketData.stepSize) {
             side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
-            goodTilTimeInSeconds1 = OrderTimeInForce.GTT
         } else if (advice === EAdvice.CELEBRATE && Math.abs(position.size) > marketData.stepSize) {
             side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
-            goodTilTimeInSeconds1 = OrderTimeInForce.GTT
             size = Math.abs(position.size) - marketData.stepSize
         } else {
             return
         }
         price = (side === OrderSide.BUY) ? marketData.oraclePrice * 1.001 : marketData.oraclePrice * 0.999
-        await this.compositeClient.placeOrder(subaccount, position.market, OrderType.MARKET, side, price, size, id, OrderTimeInForce.GTT, goodTilTimeInSeconds1, OrderExecution.DEFAULT)
+        await this.compositeClient.placeOrder(subaccount, position.market, OrderType.MARKET, side, price, size, id, OrderTimeInForce.IOC, OrderTimeInForce.IOC, OrderExecution.DEFAULT)
     }
 
-    private getAdvice(lower: number, current: number, upper: number): EAdvice {
+    private getAdvice(pnlHistory: IPNLHistory): EAdvice {
+        const bollingerBands = Bollinger.getBollingerBands(pnlHistory.pnls, this.spreadFactor)
+        const lower = bollingerBands.lower[pnlHistory.pnls.length - 1]
+        const current = pnlHistory.pnls[pnlHistory.pnls.length - 1]
+        const upper = bollingerBands.upper[pnlHistory.pnls.length - 1]
         if (current <= lower && this.freeCollateralPercentage > this.targetCollateralPercentage) {
             return EAdvice.INCREASE
         } else if (current >= this.celebrateAt) {
@@ -127,7 +125,7 @@ export class Collector {
             return EAdvice.RELAX
         }
     }
-    
+
     private updatePNLHistory(market: string, currentPNL: number) {
         const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === market)[0]
         if (pnlHistory === undefined) {
