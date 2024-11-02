@@ -126,12 +126,12 @@ export class Collector {
         const lower = bollingerBands.lower[pnlHistory.pnls.length - 1]
         const current = pnlHistory.pnls[pnlHistory.pnls.length - 1]
         const upper = bollingerBands.upper[pnlHistory.pnls.length - 1]
-        if (current <= lower && this.freeCollateralPercentage > this.targetCollateralPercentage) {
+        if (current < lower && this.freeCollateralPercentage > this.targetCollateralPercentage) {
             console.log(`suggesting to increase ${pnlHistory.market} current: ${current} lower: ${lower}`)
             return EAdvice.INCREASE
         } else if (current >= this.celebrateAt) {
             return EAdvice.CELEBRATE
-        } else if (current >= upper || this.freeCollateralPercentage < this.minCollateralPercentage) {
+        } else if (current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) {
             console.log(`suggesting to decrease ${pnlHistory.market} current: ${current} upper: ${upper}`)
             return EAdvice.DECREASE
         } else {
