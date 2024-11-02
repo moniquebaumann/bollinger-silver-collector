@@ -1,7 +1,7 @@
 historyLength=60
 celebrateAt=1
 intervalLength=24
-targetCollateralPercentage=60
+targetCollateralPercentage=45
 minCollateralPercentage=30
 stepSizeFactor=9
 spreadFactor=18
