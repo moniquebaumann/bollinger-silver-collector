@@ -6,4 +6,4 @@ minCollateralPercentage=20
 stepSizeFactor=6
 spreadFactor=9
 
-pm2 start ts-node --name=collect $historyLength $celebrateAt $intervalLength $targetCollateralPercentage $minCollateralPercentage $stepSizeFactor $spreadFactor -- -P tsconfig.json collector.ts
+pm2 start ts-node --name=collect -- -P tsconfig.json collector.ts $historyLength $celebrateAt $intervalLength $targetCollateralPercentage $minCollateralPercentage $stepSizeFactor $spreadFactor
