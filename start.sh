@@ -1,6 +1,6 @@
 historyLength=60
 celebrateAt=1
-intervalLength=6
+intervalLength=9
 targetCollateralPercentage=30
 minCollateralPercentage=20
 stepSizeFactor=6
