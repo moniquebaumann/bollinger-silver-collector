@@ -18,7 +18,8 @@ export class FreedomCashProvider {
     }
 
     private readonly historyLength = 33
-    private readonly minCollateralPercentage = 55
+    private readonly targetCollateralPercentage = 65
+    private readonly minCollateralPercentage = 35
     private roundCounter
     private address
     private mnemonic
@@ -57,7 +58,7 @@ export class FreedomCashProvider {
                 this.updatePNLHistory(position.market, pnlInPerCent)
                 const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
                 if (pnlHistory.pnls.length === this.historyLength) {
-                    const bollingerBands = Bands.getBollingerBands(pnlHistory.pnls, 5)
+                    const bollingerBands = Bands.getBollingerBands(pnlHistory.pnls, 3)
                     const lower = bollingerBands.lower[pnlHistory.pnls.length - 1]
                     const current = pnlHistory.pnls[pnlHistory.pnls.length - 1]
                     const upper = bollingerBands.upper[pnlHistory.pnls.length - 1]
@@ -72,7 +73,7 @@ export class FreedomCashProvider {
     }
 
     private getAdvice(lower: number, current: number, upper: number, freeCollateralPercentage: number) {
-        if (current <= lower && freeCollateralPercentage > this.minCollateralPercentage) {
+        if (current <= lower && freeCollateralPercentage > this.targetCollateralPercentage) {
             return "Buy"
         } else if (current >= upper || freeCollateralPercentage < this.minCollateralPercentage) {
             return "Sell"
@@ -92,6 +93,7 @@ export class FreedomCashProvider {
             pnlHistory.pnls.push(currentPNL)
         }
     }
+
     private async optimizePosition(position: any, subaccount: any, advice: string) {
         const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market];
         const id = `${this.roundCounter}-${position.market}`
