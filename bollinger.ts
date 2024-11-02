@@ -109,7 +109,6 @@ export class FreedomCashProvider {
             price = (side === OrderSide.BUY) ? marketData.oraclePrice * 1.001 : marketData.oraclePrice * 0.999
             goodTilTimeInSeconds1 = OrderTimeInForce.GTT
         } else {
-            console.log(`not doing anything with ${position.market} atm`)
             return
         }
 
