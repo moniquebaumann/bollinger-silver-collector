@@ -35,6 +35,7 @@ export class Collector {
     private freeCollateralPercentage = 0
     private pnlHistories: IPNLHistory[] = []
     private positions: any[] = []
+    private initialPortfolio: any[] = []
     private subaccount: any
     private address
     private mnemonic
@@ -80,7 +81,7 @@ export class Collector {
     private async considerAccount() {
         let response = await this.indexerClient.account.getSubaccounts(this.address)
         this.freeCollateralPercentage = Number(((response.subaccounts[0].freeCollateral * 100) / response.subaccounts[0].equity).toFixed(2))
-        this.positions = (await this.indexerClient.account.getSubaccountPerpetualPositions(this.address, 0)).positions
+        this.positions = (await this.indexerClient.account.getSubaccountPerpetualPositions(this.address, 0)).positions.filter((e: any) => e.closedAt === null)
         console.log(`\nequity: ${Number(response.subaccounts[0].equity).toFixed(2)} round ${this.roundCounter} free: ${this.freeCollateralPercentage}% positions: ${this.positions.length}`)
         const wallet = await LocalWallet.fromMnemonic(this.mnemonic, BECH32_PREFIX);
         this.subaccount = new SubaccountClient(wallet, 0);
@@ -89,25 +90,19 @@ export class Collector {
 
     private async considerPositions() {
         for (const position of this.positions) {
-            if (position.closedAt === null) {
-                await this.considerPosition(position)
+            const pnlInPerCent = (position.unrealizedPnl * 100) / (Math.abs(position.size) * position.entryPrice)
+            this.updatePNLHistory(position.market, pnlInPerCent)
+            const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
+            const advice = this.getAdvice(pnlHistory)
+            if (pnlHistory.pnls.length === this.historyLength || advice === EAdvice.CELEBRATE) {
+                await this.optimizePosition(position, advice)
             }
         }
     }
 
-    private async considerPosition(position) {
-        const pnlInPerCent = (position.unrealizedPnl * 100) / (Math.abs(position.size) * position.entryPrice)
-        this.updatePNLHistory(position.market, pnlInPerCent)
-        const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
-        const advice = this.getAdvice(pnlHistory)
-        if (pnlHistory.pnls.length === this.historyLength || advice === EAdvice.CELEBRATE) {
-            const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market]
-            await this.optimizePosition(position, advice, Number(marketData.stepSize), marketData.oraclePrice)
-        }
-    }
-
-    private async optimizePosition(position: any, advice: EAdvice, mDStepSize: number, mDOraclePrice: number) {
+    private async optimizePosition(position: any, advice: EAdvice) {
         const id = `${this.roundCounter}-${position.market}`
+        const mDStepSize = Math.abs(this.initialPortfolio.filter((e: any) => e.market === position.market)[0].initialAmount)
         let size = mDStepSize * this.stepSizeFactor
         let goodTilTimeInSeconds1 = 3
         let side, price
@@ -121,7 +116,8 @@ export class Collector {
         } else {
             return
         }
-        price = (side === OrderSide.BUY) ? mDOraclePrice * 1.001 : mDOraclePrice * 0.999
+        const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market]
+        price = (side === OrderSide.BUY) ? marketData.oraclePrice * 1.001 : marketData.oraclePrice * 0.999
         await this.compositeClient.placeOrder(this.subaccount, position.market, OrderType.MARKET, side, price, size, id, OrderTimeInForce.GTT, goodTilTimeInSeconds1, OrderExecution.DEFAULT)
     }
 
@@ -157,34 +153,36 @@ export class Collector {
     }
 
     private async ensureAllOpen() {
-        const initialPortfolio = [
-            { market: "ETH-USD", initialAmount: 0.001 },
-            { market: "BTC-USD", initialAmount: -0.0001 },
-            { market: "ETC-USD", initialAmount: 0.1 },
-            { market: "XLM-USD", initialAmount: -10 },
-            { market: "PEPE-USD", initialAmount: -10000000 },
-            { market: "APT-USD", initialAmount: -1 },
-            { market: "TRX-USD", initialAmount: 100 },
-            { market: "DOGE-USD", initialAmount: -100 },
-            { market: "NEAR-USD", initialAmount: 1 },
-            { market: "LTC-USD", initialAmount: 0.1 },
-            { market: "SUI-USD", initialAmount: 10 },
-            { market: "DOT-USD", initialAmount: 1 },
-            { market: "BNB-USD", initialAmount: -0.01 },
-            { market: "XRP-USD", initialAmount: -10 },
-            { market: "BCH-USD", initialAmount: 0.01 },
-            { market: "AVAX-USD", initialAmount: -0.1 },
-            { market: "SHIB-USD", initialAmount: 1000000 },
-            { market: "TON-USD", initialAmount: 1 },
-            { market: "ARB-USD", initialAmount: -1 },
-            { market: "OP-USD", initialAmount: 1 },
-            { market: "UNI-USD", initialAmount: 1 },
-            { market: "LINK-USD", initialAmount: 1 },
-            { market: "SOL-USD", initialAmount: 0.1 },
-            { market: "ADA-USD", initialAmount: 10 },
-            { market: "FIL-USD", initialAmount: 1 }
-        ]
-        for (const asset of initialPortfolio) {
+        if (this.initialPortfolio.length === 0) {
+            this.initialPortfolio = [
+                { market: "ETH-USD", initialAmount: 0.001 },
+                { market: "BTC-USD", initialAmount: -0.0001 },
+                { market: "ETC-USD", initialAmount: 0.1 },
+                { market: "XLM-USD", initialAmount: -10 },
+                { market: "PEPE-USD", initialAmount: -10000000 },
+                { market: "APT-USD", initialAmount: -1 },
+                { market: "TRX-USD", initialAmount: 100 },
+                { market: "DOGE-USD", initialAmount: -100 },
+                { market: "NEAR-USD", initialAmount: 1 },
+                { market: "LTC-USD", initialAmount: 0.1 },
+                { market: "SUI-USD", initialAmount: 10 },
+                { market: "DOT-USD", initialAmount: 1 },
+                { market: "BNB-USD", initialAmount: -0.01 },
+                { market: "XRP-USD", initialAmount: -10 },
+                { market: "BCH-USD", initialAmount: 0.01 },
+                { market: "AVAX-USD", initialAmount: -0.1 },
+                { market: "SHIB-USD", initialAmount: 1000000 },
+                { market: "TON-USD", initialAmount: 1 },
+                { market: "ARB-USD", initialAmount: -1 },
+                { market: "OP-USD", initialAmount: 1 },
+                { market: "UNI-USD", initialAmount: 1 },
+                { market: "LINK-USD", initialAmount: 1 },
+                { market: "SOL-USD", initialAmount: 0.1 },
+                { market: "ADA-USD", initialAmount: 10 },
+                { market: "FIL-USD", initialAmount: 1 }
+            ]
+        }
+        for (const asset of this.initialPortfolio) {
             const available = this.positions.filter((e: any) => e.market === asset.market && e.closedAt === null)[0]
             if (available === undefined) {
                 const marketData = (await this.indexerClient.markets.getPerpetualMarkets(asset.market)).markets[asset.market];
