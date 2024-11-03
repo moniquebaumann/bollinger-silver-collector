@@ -29,7 +29,6 @@ export class Collector {
     private intervalLength = 6
     private targetCollateralPercentage = 30
     private minCollateralPercentage = 20
-    private stepSizeFactor = 6
     private spreadFactor = 9
     private roundCounter = 0
     private freeCollateralPercentage = 0
@@ -49,13 +48,12 @@ export class Collector {
         this.compositeClient = compositeClient
     }
 
-    public prepare(hL: number, cAt: number, iL: number, tCP: number, mCP: number, sSF: number, sF: number) {
+    public prepare(hL: number, cAt: number, iL: number, tCP: number, mCP: number, sF: number) {
         this.historyLength = hL
         this.celebrateAt = cAt
         this.intervalLength = iL
         this.targetCollateralPercentage = tCP
         this.minCollateralPercentage = mCP
-        this.stepSizeFactor = sSF
         this.spreadFactor = sF
     }
 
@@ -93,7 +91,7 @@ export class Collector {
             const pnlInPerCent = (position.unrealizedPnl * 100) / (Math.abs(position.size) * position.entryPrice)
             this.updatePNLHistory(position.market, pnlInPerCent)
             const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
-            const advice = this.getAdvice(pnlHistory)
+            const advice = this.getAdvice(pnlHistory, position)
             if (pnlHistory.pnls.length === this.historyLength) {
                 await this.followAdvice(position, advice)
             }
@@ -105,8 +103,7 @@ export class Collector {
             // relax
         } else {
             const id = `${this.roundCounter}-${position.market}`
-            const mDStepSize = Math.abs(this.initialPortfolio.filter((e: any) => e.market === position.market)[0].initialAmount)
-            let size = mDStepSize * this.stepSizeFactor
+            let size = Math.abs(this.initialPortfolio.filter((e: any) => e.market === position.market)[0].initialAmount)
             let goodTilTimeInSeconds1 = 3
             let side, price
             if (advice === EAdvice.INCREASE) {
@@ -123,18 +120,19 @@ export class Collector {
         }
     }
 
-    private getAdvice(pnlHistory: IPNLHistory): EAdvice {
+    private getAdvice(pnlHistory: IPNLHistory, position: any): EAdvice {
         const bollingerBands = Bollinger.getBollingerBands(pnlHistory.pnls, this.spreadFactor)
         const lower = bollingerBands.lower[pnlHistory.pnls.length - 1]
         const current = pnlHistory.pnls[pnlHistory.pnls.length - 1]
         const upper = bollingerBands.upper[pnlHistory.pnls.length - 1]
+        let stepSize = Math.abs(this.initialPortfolio.filter((e: any) => e.market === position.market)[0].initialAmount)
         if (current < lower && this.freeCollateralPercentage > this.targetCollateralPercentage) {
             console.log(`suggesting to increase ${pnlHistory.market} current: ${current} lower: ${lower}`)
             return EAdvice.INCREASE
         } else if (current >= this.celebrateAt) {
             console.log(`suggesting to celebrate ${pnlHistory.market} current: ${current} celebrateAt: ${this.celebrateAt}`)
             return EAdvice.CELEBRATE
-        } else if (current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) {
+        } else if ((current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) && Math.abs(Number(position.size)) > stepSize) {
             console.log(`suggesting to decrease ${pnlHistory.market} current: ${current} upper: ${upper}`)
             return EAdvice.DECREASE
         } else {
@@ -214,6 +212,6 @@ setTimeout(async () => {
     const stepSizeFactor = Number(process.argv[7])
     const spreadFactor = Number(process.argv[8])
 
-    collector.prepare(historyLength, celebrateAt, intervalLength, targetCollateralPercentage, minCollateralPercentage, stepSizeFactor, spreadFactor)
+    collector.prepare(historyLength, celebrateAt, intervalLength, targetCollateralPercentage, minCollateralPercentage, spreadFactor)
     collector.play()
 }, 1)
