@@ -119,6 +119,7 @@ export class Collector {
             size = Math.abs(position.size) - mDStepSize
         } else if (advice === EAdvice.PREPARE) {
             side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
+            size = mDStepSize * 5
         } else {
             return
         }
