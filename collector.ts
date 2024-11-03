@@ -109,7 +109,6 @@ export class Collector {
         let size = mDStepSize * this.stepSizeFactor
         let goodTilTimeInSeconds1 = 3
         let side, price
-        console.log(advice)
         if (advice === EAdvice.INCREASE) {
             side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
         } else if (advice === EAdvice.DECREASE) {
