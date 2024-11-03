@@ -94,31 +94,33 @@ export class Collector {
             this.updatePNLHistory(position.market, pnlInPerCent)
             const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
             const advice = this.getAdvice(pnlHistory)
-            if (pnlHistory.pnls.length === this.historyLength || advice === EAdvice.CELEBRATE) {
-                await this.optimizePosition(position, advice)
+            if (pnlHistory.pnls.length === this.historyLength) {
+                await this.followAdvice(position, advice)
             }
         }
     }
 
-    private async optimizePosition(position: any, advice: EAdvice) {
-        const id = `${this.roundCounter}-${position.market}`
-        const mDStepSize = Math.abs(this.initialPortfolio.filter((e: any) => e.market === position.market)[0].initialAmount)
-        let size = mDStepSize * this.stepSizeFactor
-        let goodTilTimeInSeconds1 = 3
-        let side, price
-        if (advice === EAdvice.INCREASE) {
-            side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
-        } else if (advice === EAdvice.DECREASE) {
-            side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
-        } else if (advice === EAdvice.CELEBRATE) {
-            side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
-            size = Math.abs(position.size)
+    private async followAdvice(position: any, advice: EAdvice) {
+        if (advice === EAdvice.RELAX) {
+            // relax
         } else {
-            return
+            const id = `${this.roundCounter}-${position.market}`
+            const mDStepSize = Math.abs(this.initialPortfolio.filter((e: any) => e.market === position.market)[0].initialAmount)
+            let size = mDStepSize * this.stepSizeFactor
+            let goodTilTimeInSeconds1 = 3
+            let side, price
+            if (advice === EAdvice.INCREASE) {
+                side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
+            } else if (advice === EAdvice.DECREASE) {
+                side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
+            } else if (advice === EAdvice.CELEBRATE) {
+                side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
+                size = Math.abs(position.size)
+            }
+            const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market]
+            price = (side === OrderSide.BUY) ? marketData.oraclePrice * 1.001 : marketData.oraclePrice * 0.999
+            await this.compositeClient.placeOrder(this.subaccount, position.market, OrderType.MARKET, side, price, size, id, OrderTimeInForce.GTT, goodTilTimeInSeconds1, OrderExecution.DEFAULT)
         }
-        const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market]
-        price = (side === OrderSide.BUY) ? marketData.oraclePrice * 1.001 : marketData.oraclePrice * 0.999
-        await this.compositeClient.placeOrder(this.subaccount, position.market, OrderType.MARKET, side, price, size, id, OrderTimeInForce.GTT, goodTilTimeInSeconds1, OrderExecution.DEFAULT)
     }
 
     private getAdvice(pnlHistory: IPNLHistory): EAdvice {
