@@ -11,6 +11,7 @@ export enum EAdvice {
     INCREASE = "INCREASE",
     DECREASE = "DECREASE",
     CELEBRATE = "CELEBRATE",
+    PREPARE = "PREPARE",
     RELAX = "RELAX"
 }
 
@@ -84,6 +85,7 @@ export class Collector {
     private async considerPositions() {
         const positions = (await this.indexerClient.account.getSubaccountPerpetualPositions(this.address, 0)).positions
         for (const position of positions) {
+            if (position.market !== "DOGE-USD") continue
             if (position.closedAt === null) {
                 await this.considerPosition(position)
             }
@@ -91,37 +93,41 @@ export class Collector {
     }
 
     private async considerPosition(position) {
+        const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market];
         const pnlInPerCent = (position.unrealizedPnl * 100) / (Math.abs(position.size) * position.entryPrice)
         this.updatePNLHistory(position.market, pnlInPerCent)
         const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
-        const advice = this.getAdvice(pnlHistory)
-        if (pnlHistory.pnls.length === this.historyLength || advice === EAdvice.CELEBRATE) {
+        const advice = this.getAdvice(pnlHistory, position.size, Number(marketData.stepSize))
+        if (pnlHistory.pnls.length === this.historyLength || advice === EAdvice.CELEBRATE || advice === EAdvice.PREPARE) {
             const wallet = await LocalWallet.fromMnemonic(this.mnemonic, BECH32_PREFIX);
             const subaccount = new SubaccountClient(wallet, 0);
-            await this.optimizePosition(position, subaccount, advice)
+            await this.optimizePosition(position, subaccount, advice, Number(marketData.stepSize), marketData.oraclePrice)
         }
     }
 
-    private async optimizePosition(position: any, subaccount: any, advice: EAdvice) {
-        const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market];
+    private async optimizePosition(position: any, subaccount: any, advice: EAdvice, mDStepSize: number, mDOraclePrice: number) {
         const id = `${this.roundCounter}-${position.market}`
-        let size = marketData.stepSize * this.stepSizeFactor
+        let size = mDStepSize * this.stepSizeFactor
+        let goodTilTimeInSeconds1 = 3
         let side, price
+        console.log(advice)
         if (advice === EAdvice.INCREASE) {
             side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
-        } else if (advice === EAdvice.DECREASE && Math.abs(position.size) > marketData.stepSize) {
+        } else if (advice === EAdvice.DECREASE) {
             side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
-        } else if (advice === EAdvice.CELEBRATE && Math.abs(position.size) > marketData.stepSize) {
+        } else if (advice === EAdvice.CELEBRATE) {
             side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
-            size = Math.abs(position.size) - marketData.stepSize
+            size = Math.abs(position.size) - mDStepSize
+        } else if (advice === EAdvice.PREPARE) {
+            side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
         } else {
             return
         }
-        price = (side === OrderSide.BUY) ? marketData.oraclePrice * 1.001 : marketData.oraclePrice * 0.999
-        await this.compositeClient.placeOrder(subaccount, position.market, OrderType.MARKET, side, price, size, id, OrderTimeInForce.IOC, OrderTimeInForce.IOC, OrderExecution.DEFAULT)
+        price = (side === OrderSide.BUY) ? mDOraclePrice * 1.001 : mDOraclePrice * 0.999
+        await this.compositeClient.placeOrder(subaccount, position.market, OrderType.MARKET, side, price, size, id, OrderTimeInForce.GTT, goodTilTimeInSeconds1, OrderExecution.DEFAULT)
     }
 
-    private getAdvice(pnlHistory: IPNLHistory): EAdvice {
+    private getAdvice(pnlHistory: IPNLHistory, positionSize: number, mDStepSize: number): EAdvice {
         const bollingerBands = Bollinger.getBollingerBands(pnlHistory.pnls, this.spreadFactor)
         const lower = bollingerBands.lower[pnlHistory.pnls.length - 1]
         const current = pnlHistory.pnls[pnlHistory.pnls.length - 1]
@@ -129,12 +135,15 @@ export class Collector {
         if (current < lower && this.freeCollateralPercentage > this.targetCollateralPercentage) {
             console.log(`suggesting to increase ${pnlHistory.market} current: ${current} lower: ${lower}`)
             return EAdvice.INCREASE
-        } else if (current >= this.celebrateAt) {
+        } else if (current >= this.celebrateAt && Math.abs(positionSize) > mDStepSize) {
             console.log(`suggesting to celebrate ${pnlHistory.market} current: ${current} celebrateAt: ${this.celebrateAt}`)
             return EAdvice.CELEBRATE
-        } else if (current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) {
+        } else if ((current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) && Math.abs(positionSize) > mDStepSize) {
             console.log(`suggesting to decrease ${pnlHistory.market} current: ${current} upper: ${upper}`)
             return EAdvice.DECREASE
+        } else if (current >= this.celebrateAt && Math.abs(positionSize) === mDStepSize) {
+            console.log(`suggesting to prepare ${pnlHistory.market} current: ${current} positionSize: ${positionSize} ${mDStepSize}`)
+            return EAdvice.PREPARE
         } else {
             return EAdvice.RELAX
         }

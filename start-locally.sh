@@ -1,9 +1,9 @@
-historyLength=60
-celebrateAt=1
+historyLength=33
+celebrateAt=1.61803398874989
 intervalLength=9
-targetCollateralPercentage=30
-minCollateralPercentage=20
-stepSizeFactor=9
-spreadFactor=12
+targetCollateralPercentage=45
+minCollateralPercentage=24
+stepSizeFactor=1
+spreadFactor=22
 
 ts-node collector.ts $historyLength $celebrateAt $intervalLength $targetCollateralPercentage $minCollateralPercentage $stepSizeFactor $spreadFactor 
