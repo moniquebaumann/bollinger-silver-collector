@@ -116,6 +116,7 @@ export class Collector {
             }
             const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market]
             price = (side === OrderSide.BUY) ? marketData.oraclePrice * 1.001 : marketData.oraclePrice * 0.999
+            console.log(`${advice} ${position.market}`)
             await this.compositeClient.placeOrder(this.subaccount, position.market, OrderType.MARKET, side, price, size, id, OrderTimeInForce.GTT, goodTilTimeInSeconds1, OrderExecution.DEFAULT)
         }
     }
@@ -127,13 +128,10 @@ export class Collector {
         const upper = bollingerBands.upper[pnlHistory.pnls.length - 1]
         let stepSize = Math.abs(this.initialPortfolio.filter((e: any) => e.market === position.market)[0].initialAmount)
         if (current < lower && this.freeCollateralPercentage > this.targetCollateralPercentage) {
-            console.log(`suggesting to increase ${pnlHistory.market}`)
             return EAdvice.INCREASE
         } else if (current >= this.celebrateAt) {
-            console.log(`suggesting to celebrate ${pnlHistory.market}`)
             return EAdvice.CELEBRATE
         } else if ((current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) && Math.abs(Number(position.size)) > stepSize) {
-            console.log(`suggesting to decrease ${pnlHistory.market}`)
             return EAdvice.DECREASE
         } else {
             return EAdvice.RELAX
