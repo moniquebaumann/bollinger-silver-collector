@@ -85,7 +85,6 @@ export class Collector {
     private async considerPositions() {
         const positions = (await this.indexerClient.account.getSubaccountPerpetualPositions(this.address, 0)).positions
         for (const position of positions) {
-            if (position.market !== "DOGE-USD") continue
             if (position.closedAt === null) {
                 await this.considerPosition(position)
             }
@@ -163,6 +162,7 @@ export class Collector {
 }
 
 config()
+
 setTimeout(async () => {
     const compositeClient = await CompositeClient.connect(Network.mainnet());
     const collector = Collector.getInstance(process.env.ADDRESS as string, process.env.MNEMONIC as string, compositeClient)
