@@ -127,13 +127,13 @@ export class Collector {
         const upper = bollingerBands.upper[pnlHistory.pnls.length - 1]
         let stepSize = Math.abs(this.initialPortfolio.filter((e: any) => e.market === position.market)[0].initialAmount)
         if (current < lower && this.freeCollateralPercentage > this.targetCollateralPercentage) {
-            console.log(`suggesting to increase ${pnlHistory.market} current: ${current} lower: ${lower}`)
+            console.log(`suggesting to increase ${pnlHistory.market}`)
             return EAdvice.INCREASE
         } else if (current >= this.celebrateAt) {
-            console.log(`suggesting to celebrate ${pnlHistory.market} current: ${current} celebrateAt: ${this.celebrateAt}`)
+            console.log(`suggesting to celebrate ${pnlHistory.market}`)
             return EAdvice.CELEBRATE
         } else if ((current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) && Math.abs(Number(position.size)) > stepSize) {
-            console.log(`suggesting to decrease ${pnlHistory.market} current: ${current} upper: ${upper}`)
+            console.log(`suggesting to decrease ${pnlHistory.market}`)
             return EAdvice.DECREASE
         } else {
             return EAdvice.RELAX
@@ -209,8 +209,7 @@ setTimeout(async () => {
     const intervalLength = Number(process.argv[4])
     const targetCollateralPercentage = Number(process.argv[5])
     const minCollateralPercentage = Number(process.argv[6])
-    const stepSizeFactor = Number(process.argv[7])
-    const spreadFactor = Number(process.argv[8])
+    const spreadFactor = Number(process.argv[7])
 
     collector.prepare(historyLength, celebrateAt, intervalLength, targetCollateralPercentage, minCollateralPercentage, spreadFactor)
     collector.play()
