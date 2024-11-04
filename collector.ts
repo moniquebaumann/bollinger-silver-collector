@@ -93,7 +93,6 @@ export class Collector {
             this.updatePNLHistory(position.market, pnlInPerCent)
             const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
             const advice = this.getAdvice(pnlHistory, position)
-            console.log(advice)
             if (pnlHistory.pnls.length === this.historyLength) {
                 await this.followAdvice(position, advice)
             }
