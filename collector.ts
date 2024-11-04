@@ -27,6 +27,7 @@ export class Collector {
 
     private historyLength = 60
     private celebrateAt = 1
+    private boostAt = -1
     private intervalLength = 6
     private targetCollateralPercentage = 30
     private minCollateralPercentage = 20
@@ -49,17 +50,19 @@ export class Collector {
         this.compositeClient = compositeClient
     }
 
-    public prepare(hL: number, cAt: number, iL: number, tCP: number, mCP: number, sF: number) {
+    public prepare(hL: number, cAt: number, iL: number, tCP: number, mCP: number, sF: number, bAt: number) {
         this.historyLength = hL
         this.celebrateAt = cAt
+        this.boostAt = bAt
         this.intervalLength = iL
         this.targetCollateralPercentage = tCP
         this.minCollateralPercentage = mCP
         this.spreadFactor = sF
+        this.boostAt = bAt
     }
 
     public play() {
-        if (this.intervalLength === undefined || this.intervalLength < 9) {
+        if (isNaN(this.intervalLength) || this.intervalLength === undefined || this.intervalLength < 9) {
             throw new Error(`interval length shall be at least 9 seconds`)
         }
         setInterval(async () => {
@@ -111,7 +114,7 @@ export class Collector {
             return EAdvice.CELEBRATE
         } else if ((current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) && Math.abs(Number(position.size)) > stepSize) {
             return EAdvice.DECREASE
-        } else if(current < (this.celebrateAt *  -1)) {
+        } else if (current < this.boostAt && this.freeCollateralPercentage > this.targetCollateralPercentage) {
             return EAdvice.BOOST
         } else {
             return EAdvice.RELAX
@@ -166,7 +169,6 @@ export class Collector {
                 { market: "PEPE-USD", initialAmount: -10000000 },
                 { market: "APT-USD", initialAmount: -1 },
                 { market: "TRX-USD", initialAmount: 100 },
-                { market: "DOGE-USD", initialAmount: -100 },
                 { market: "NEAR-USD", initialAmount: 1 },
                 { market: "LTC-USD", initialAmount: 0.1 },
                 { market: "SUI-USD", initialAmount: 10 },
@@ -214,7 +216,8 @@ setTimeout(async () => {
     const targetCollateralPercentage = Number(process.argv[5])
     const minCollateralPercentage = Number(process.argv[6])
     const spreadFactor = Number(process.argv[7])
+    const boostAt = Number(process.argv[8])
 
-    collector.prepare(historyLength, celebrateAt, intervalLength, targetCollateralPercentage, minCollateralPercentage, spreadFactor)
+    collector.prepare(historyLength, celebrateAt, intervalLength, targetCollateralPercentage, minCollateralPercentage, spreadFactor, boostAt)
     collector.play()
 }, 1)
