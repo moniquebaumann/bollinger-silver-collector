@@ -110,12 +110,12 @@ export class Collector {
         let stepSize = Math.abs(this.initialPortfolio.filter((e: any) => e.market === position.market)[0].initialAmount)
         if (current < lower && this.freeCollateralPercentage > this.targetCollateralPercentage) {
             return EAdvice.INCREASE
+        } else if (current < this.boostAt && this.freeCollateralPercentage > this.targetCollateralPercentage) {
+            return EAdvice.BOOST
         } else if (current >= this.celebrateAt) {
             return EAdvice.CELEBRATE
         } else if ((current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) && Math.abs(Number(position.size)) > stepSize) {
             return EAdvice.DECREASE
-        } else if (current < this.boostAt && this.freeCollateralPercentage > this.targetCollateralPercentage) {
-            return EAdvice.BOOST
         } else {
             return EAdvice.RELAX
         }
@@ -131,14 +131,14 @@ export class Collector {
             let side, price
             if (advice === EAdvice.INCREASE) {
                 side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
-            } else if (advice === EAdvice.DECREASE) {
+            } else if (advice === EAdvice.BOOST) {
+                side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
+            }else if (advice === EAdvice.DECREASE) {
                 side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
             } else if (advice === EAdvice.CELEBRATE) {
                 side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
                 size = Math.abs(position.size)
-            } else if (advice === EAdvice.BOOST) {
-                side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
-            }
+            } 
             const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market]
             price = (side === OrderSide.BUY) ? marketData.oraclePrice * 1.001 : marketData.oraclePrice * 0.999
             console.log(`${advice} ${position.market}`)
