@@ -11,6 +11,7 @@ export enum EAdvice {
     INCREASE = "INCREASE",
     DECREASE = "DECREASE",
     CELEBRATE = "CELEBRATE",
+    BOOST = "BOOST",
     RELAX = "RELAX"
 }
 
@@ -92,9 +93,29 @@ export class Collector {
             this.updatePNLHistory(position.market, pnlInPerCent)
             const pnlHistory = this.pnlHistories.filter((e: IPNLHistory) => e.market === position.market)[0]
             const advice = this.getAdvice(pnlHistory, position)
+            console.log(advice)
             if (pnlHistory.pnls.length === this.historyLength) {
                 await this.followAdvice(position, advice)
             }
+        }
+    }
+
+    private getAdvice(pnlHistory: IPNLHistory, position: any): EAdvice {
+        const bollingerBands = Bollinger.getBollingerBands(pnlHistory.pnls, this.spreadFactor)
+        const lower = bollingerBands.lower[pnlHistory.pnls.length - 1]
+        const current = pnlHistory.pnls[pnlHistory.pnls.length - 1]
+        const upper = bollingerBands.upper[pnlHistory.pnls.length - 1]
+        let stepSize = Math.abs(this.initialPortfolio.filter((e: any) => e.market === position.market)[0].initialAmount)
+        if (current < lower && this.freeCollateralPercentage > this.targetCollateralPercentage) {
+            return EAdvice.INCREASE
+        } else if (current >= this.celebrateAt) {
+            return EAdvice.CELEBRATE
+        } else if ((current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) && Math.abs(Number(position.size)) > stepSize) {
+            return EAdvice.DECREASE
+        } else if(current < (this.celebrateAt *  -1)) {
+            return EAdvice.BOOST
+        } else {
+            return EAdvice.RELAX
         }
     }
 
@@ -113,28 +134,14 @@ export class Collector {
             } else if (advice === EAdvice.CELEBRATE) {
                 side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
                 size = Math.abs(position.size)
+            } else if (advice === EAdvice.BOOST) {
+                size = Math.abs(position.size)
+                side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
             }
             const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market]
             price = (side === OrderSide.BUY) ? marketData.oraclePrice * 1.001 : marketData.oraclePrice * 0.999
             console.log(`${advice} ${position.market}`)
             await this.compositeClient.placeOrder(this.subaccount, position.market, OrderType.MARKET, side, price, size, id, OrderTimeInForce.GTT, goodTilTimeInSeconds1, OrderExecution.DEFAULT)
-        }
-    }
-
-    private getAdvice(pnlHistory: IPNLHistory, position: any): EAdvice {
-        const bollingerBands = Bollinger.getBollingerBands(pnlHistory.pnls, this.spreadFactor)
-        const lower = bollingerBands.lower[pnlHistory.pnls.length - 1]
-        const current = pnlHistory.pnls[pnlHistory.pnls.length - 1]
-        const upper = bollingerBands.upper[pnlHistory.pnls.length - 1]
-        let stepSize = Math.abs(this.initialPortfolio.filter((e: any) => e.market === position.market)[0].initialAmount)
-        if (current < lower && this.freeCollateralPercentage > this.targetCollateralPercentage) {
-            return EAdvice.INCREASE
-        } else if (current >= this.celebrateAt) {
-            return EAdvice.CELEBRATE
-        } else if ((current > upper || this.freeCollateralPercentage < this.minCollateralPercentage) && Math.abs(Number(position.size)) > stepSize) {
-            return EAdvice.DECREASE
-        } else {
-            return EAdvice.RELAX
         }
     }
 
