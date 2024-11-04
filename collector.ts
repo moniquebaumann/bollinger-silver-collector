@@ -137,7 +137,6 @@ export class Collector {
                 side = (position.side === "LONG") ? OrderSide.SELL : OrderSide.BUY
                 size = Math.abs(position.size)
             } else if (advice === EAdvice.BOOST) {
-                size = Math.abs(position.size)
                 side = (position.side === "LONG") ? OrderSide.BUY : OrderSide.SELL
             }
             const marketData = (await this.indexerClient.markets.getPerpetualMarkets(position.market)).markets[position.market]
